@@ -2,3 +2,4 @@
 ^renv\.lock$
 ^kondo\.Rproj$
 ^\.Rproj\.user$
+^LICENSE\.md$
