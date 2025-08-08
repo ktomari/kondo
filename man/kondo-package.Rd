@@ -4,7 +4,7 @@
 \name{kondo-package}
 \alias{kondo}
 \alias{kondo-package}
-\title{kondo: Organize file system on macOS.}
+\title{kondo: Organize file system on macOS}
 \description{
 Organize file system on macOS.
 }
