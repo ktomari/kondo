@@ -2,18 +2,20 @@
 % Please edit documentation in R/components.R
 \name{k_ls}
 \alias{k_ls}
-\title{Create tibble of file list with information.}
+\title{Create a tibble of non-recursive file list with information}
 \usage{
-k_ls(dir_)
+k_ls(dir_, pattern_ = NULL)
 }
 \arguments{
 \item{dir_}{string. Path to directory.}
+
+\item{pattern_}{NULL or string. Pattern to feed into list.files.}
 }
 \value{
 tibble
 }
 \description{
-Create tibble of file list with information.
+Create a tibble of non-recursive file list with information
 }
 \examples{
 k_ls(dir_ = "~/Downloads")
