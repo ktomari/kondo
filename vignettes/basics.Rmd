@@ -67,6 +67,25 @@ df <- k_dupes(df)
 df
 ```
 
+# Cleaning Personal Files
+
+By and large, on macOS, we want to look for personal files in the following directories (recursively).
+
+```{r}
+c(
+  # iCloud
+  "~/Library/Mobile\ Documents/com~apple~CloudDocs/",
+  # user files (minus Library and Applications)
+  "~/Desktop",
+  "~/Documents",
+  "~/Downloads",
+  "~/Pictures",
+  "~/Music",
+  "~/Movies" 
+)
+```
+
+
 # FAQ
 
 How do I look at multiple directories?
