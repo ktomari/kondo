@@ -20,12 +20,55 @@ library(kondo)
 
 # Finding Duplicates
 
-We'll test this code with some dummy data. There are essentially two datasets built into this package and both are derived from `data(iris)`. From these two data subsets, there are essentially two files, each with some sort of duplication. There is a file with the same file name (and data), and another file that is simply a data duplicate, but with its own unique name.
+We'll test this code with some dummy data. There are essentially two datasets built into this package and both are derived from `data(iris)`. From these two data subsets, there are essentially two files with some sort of duplication. There is a file with the same file name (and data), and another file that is simply a data duplicate, but with its own unique name. Finally, there is one file that has no duplicate.
 
 ```{r}
 # Get path to extdata directory
 extdata_path <- system.file("extdata", package = "kondo")
+test_path <- file.path(extdata_path, "test_iris")
 
-list.files(system.file("extdata", "test_iris"))
+# Run list files function
+df <- k_ls(test_path)
+df
 ```
 
+Now we find duplicates. The following function identifies duplicates in two ways:
+
+First, it looks at the file name and indicates if it shares a name with another file. Usually, this is not a good way to identify duplicates because there are many repeated file names on your file system (imagine all the "untitled.docx" files you probably have!).
+
+Second, it does a quick [md5](https://en.wikipedia.org/wiki/MD5) hash function using `digest::digest`. While it is possible that two different files with the exact same value will exist, this possibility (or "collision") is unlikely. The probability of this happening is discussed [here](https://stackoverflow.com/questions/201705/how-many-random-elements-before-md5-produces-collisions).
+
+So, as you examine the output data.frame, look at the `md5` column and search for duplicates.
+
+```{r}
+df <- k_dupes(df, rm.unique = FALSE)
+
+df
+```
+
+To identify duplicates programmatically, you can use this code.
+
+```{r}
+duplicated(df$md5)
+```
+Notice that the first instance of the md5 value is not flagged as a duplicate, even though the following line is in fact a duplicate.
+
+By and large, the way `k_dupes` works is to only check for duplicates where common file sizes are present. So, you can clear out any file that have no duplicates by filtering `!is.na(df$md5)`.
+
+```{r}
+df[!is.na(df$md5),]
+```
+
+Alternatively, we can filter out duplicates from the start. Notice how `k_dupes` no longer has an argument `rm.unique = FALSE`. The default is to remove unique values.
+
+```{r}
+df <- k_ls(test_path)
+df <- k_dupes(df)
+df
+```
+
+# FAQ
+
+How do I look at multiple directories?
+
+You can supply a character vector of multiple absolute file paths to `k_ls`.
