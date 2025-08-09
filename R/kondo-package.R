@@ -10,6 +10,7 @@
 #' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
 #' @importFrom dplyr n
+#' @importFrom dplyr row_number
 #' @importFrom dplyr select
 #' @importFrom dplyr ungroup
 #' @importFrom magrittr %>%
