@@ -2,14 +2,18 @@
 % Please edit documentation in R/components.R
 \name{k_dupes}
 \alias{k_dupes}
-\title{Identify duplicates files in tibble contain columns \code{path} and \code{size}.}
+\title{Identify duplicates files in tibble contain columns path and size}
 \usage{
-k_dupes(tb, rm.unique = TRUE)
+k_dupes(tb, rm.unique = TRUE, msg_rate = 50, write_ = FALSE)
 }
 \arguments{
 \item{tb}{data.frame/tibble. The data.frame returned by \code{k_ls}.}
 
 \item{rm.unique}{logical. Whether or not to remove unique values. By default, it is \code{TRUE}.}
+
+\item{msg_rate}{numeric. How often do you want a system message to appear as you run the function? By default, on every 50th file, a message will appear.}
+
+\item{write_}{logical. Write csv output to disk. By default it downloads to ~/Downloads.}
 }
 \value{
 tibble
