@@ -42,3 +42,7 @@ rsconnect/
 # suggested renv ignore from: https://medium.com/@dineshkumarm740/making-r-projects-reproducible-a-friendly-guide-to-renv-for-data-scientists-bdfaecbd1ac7
 renv/library/
 renv/staging/
+
+# my code
+/sandbox
+inst/doc

@@ -15,3 +15,7 @@ Imports:
     purrr,
     stringr,
     tibble
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
