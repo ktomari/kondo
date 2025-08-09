@@ -4,10 +4,12 @@
 \alias{k_dupes}
 \title{Identify duplicates files in tibble contain columns \code{path} and \code{size}.}
 \usage{
-k_dupes(tb)
+k_dupes(tb, rm.unique = TRUE)
 }
 \arguments{
-\item{tb}{}
+\item{tb}{data.frame/tibble. The data.frame returned by \code{k_ls}.}
+
+\item{rm.unique}{logical. Whether or not to remove unique values. By default, it is \code{TRUE}.}
 }
 \value{
 tibble

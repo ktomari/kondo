@@ -38,11 +38,12 @@ k_ls <- function(
 #' @description
 #' If hash is present in the `md5`column, then it is duplicate!
 #'
-#' @param tb
+#' @param tb data.frame/tibble. The data.frame returned by `k_ls`.
+#' @param rm.unique logical. Whether or not to remove unique values. By default, it is `TRUE`.
 #'
 #' @returns tibble
 #' @export
-k_dupes <- function(tb){
+k_dupes <- function(tb, rm.unique = TRUE){
   stopifnot(inherits(tb, 'data.frame'))
   stopifnot("path" %in% names(tb))
   stopifnot("size" %in% names(tb))
@@ -74,8 +75,20 @@ k_dupes <- function(tb){
     dplyr::ungroup() %>%
     dplyr::select(-size)
 
-  # return
-  tb %>%
+  # add md5 column in to original dataset.
+  tb <- tb %>%
     # add dupes b
     dplyr::left_join(y = potential_dups, by = "path")
+
+  if(rm.unique){
+    # create filter criteria of duplicated values.
+    filtr_ <- tb$md5[duplicated(tb$md5)] |>
+      unique()
+
+    # execute filter
+    tb <- tb[tb$md5 %in% filtr_,]
+  }
+
+  # return
+  tb
 }
