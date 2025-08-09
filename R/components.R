@@ -1,6 +1,6 @@
 #' Create a tibble of non-recursive file list with information
 #'
-#' @param dir_ string. Path to directory.
+#' @param dir_ character. One or more paths to directories to inventory.
 #' @param pattern_ NULL or string. Pattern to feed into list.files.
 #' @returns tibble
 #' @export
@@ -11,8 +11,8 @@ k_ls <- function(
     dir_,
     pattern_ = NULL
     ){
-  stopifnot(is.character(dir_))
-  stopifnot(is.null(pattern_) | is.character(pattern_))
+  stopifnot(inherits(dir_, 'character'))
+  stopifnot(inherits(pattern_, 'NULL') | inherits(pattern_, 'character'))
 
   fl <- list.files(dir_,
                    pattern = pattern_,
@@ -43,7 +43,7 @@ k_ls <- function(
 #' @returns tibble
 #' @export
 k_dupes <- function(tb){
-  stopifnot(is.data.frame(tb))
+  stopifnot(inherits(tb, 'data.frame'))
   stopifnot("path" %in% names(tb))
   stopifnot("size" %in% names(tb))
 
@@ -79,10 +79,3 @@ k_dupes <- function(tb){
     # add dupes b
     dplyr::left_join(y = potential_dups, by = "path")
 }
-
-# tb <- tibble::tibble(
-#   path = c("~/Downloads/x.csv", "~/Downloads/y.csv"),
-#   size = c(898989, 898989)
-# )
-#
-# k_dupes(tb = tb)

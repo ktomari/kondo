@@ -7,7 +7,7 @@
 k_ls(dir_, pattern_ = NULL)
 }
 \arguments{
-\item{dir_}{string. Path to directory.}
+\item{dir_}{character. One or more paths to directories to inventory.}
 
 \item{pattern_}{NULL or string. Pattern to feed into list.files.}
 }
