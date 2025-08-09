@@ -1,0 +1,31 @@
+---
+title: "basics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{basics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(kondo)
+```
+
+# Finding Duplicates
+
+We'll test this code with some dummy data. There are essentially two datasets built into this package and both are derived from `data(iris)`. From these two data subsets, there are essentially two files, each with some sort of duplication. There is a file with the same file name (and data), and another file that is simply a data duplicate, but with its own unique name.
+
+```{r}
+# Get path to extdata directory
+extdata_path <- system.file("extdata", package = "kondo")
+
+list.files(system.file("extdata", "test_iris"))
+```
+
