@@ -1,324 +1,382 @@
-#' Create a tibble of non-recursive file list with information
-#'
-#' @param dir_ character. One or more paths to directories to inventory.
-#' @param pattern_ NULL or string. Pattern to feed into list.files.
-#' @returns tibble
-#' @export
-#'
-#' @examples
-#' k_ls(dir_ = "~/Downloads")
-k_ls <- function(
-    dir_,
-    pattern_ = NULL
-    ){
-  stopifnot(inherits(dir_, 'character'))
-  stopifnot(inherits(pattern_, 'NULL') | inherits(pattern_, 'character'))
 
-  fl <- list.files(dir_,
+
+#' Single directory inventory maker
+#'
+#' @description
+#' Takes a path to a directory and inventories the contents. This function looks for directories and files. It returns a list with two elements, a character vector of directories, and a data.frame containing some basic information about files including the path, size, creation time, etc. Importantly, this function is non-recursive.
+#'
+#' @param dir_ character. Normalized path to primary directory.
+#' @param ignore_ character. Paths to directories to ignore.
+#' @param pattern_ character. Usually file extensions to focus upon, see \link[base]{list.files}.
+#' @param min_size numeric. The minimum file size (in bytes) to inventory.
+#' @param include_hid logical. Whether or not to include directories and files that are hidden, ie. that begin with a period.
+#'
+#' @returns list
+#' @export
+k_inventory <- function(
+    dir_,
+    ignore_ = NULL,
+    pattern_ = NULL,
+    min_size = 0,
+    include_hid = FALSE
+){
+  stopifnot(inherits(dir_, "character"))
+  stopifnot(inherits(ignore_, "character") |
+              inherits(ignore_, "NULL"))
+  stopifnot(inherits(pattern_, "character") |
+              inherits(pattern_, "NULL"))
+  stopifnot(inherits(min_size, "numeric"))
+  stopifnot(inherits(include_hid, "logical"))
+
+  # Return NULL if this directory should be ignored
+  if(dir_ %in% ignore_){
+    return(NULL)
+  }
+
+  # Return NULL if this directory does not exist.
+  if(!dir.exists(dir_)){
+    message(paste("Directory", dir_, "does not exist."))
+    return(NULL)
+  }
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Get directories and files ----
+  # get directories (non-recursively)
+  dl <- list.dirs(path = dir_,
+                  full.names = TRUE,
+                  recursive = FALSE)
+
+  # get file list
+  fl <- list.files(path = dir_,
                    pattern = pattern_,
                    full.names = TRUE,
-                   recursive = TRUE)
+                   all.files = include_hid)
 
-  tb <- purrr::map(fl, file.info) %>%
-    dplyr::bind_rows() %>%
-    tibble::rownames_to_column(var = "path") %>%
-    dplyr::mutate(pattern = pattern_) %>%
-    dplyr::select(path, isdir, size, mtime, ctime, atime) %>%
-    dplyr::mutate(size = dplyr::case_when(
-      isdir ~ as.double(NA),
-      .default = size
-    ))
+  # remove directories from file list.
+  fl <- fl[!(fl %in% dl)]
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Remove Unwanted Dirs and Files ----
+  # Ignore List of Directories
+  dl <- dl[!(dl %in% ignore_)]
+
+  # Hidden
+  # The pattern is a REGEX that detects a period at the beginning of
+  # a directory name.
+  # (Note, hidden files are already taken care of in `list.files` above.)
+  if(!include_hid){
+    dl <- dl[
+      !grepl(
+        pattern = "(?<=\\/)\\.",
+        x = dl,
+        perl = TRUE
+      )
+    ]
+  }
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Get file.info
+  if(length(fl) > 0){
+    finfo <- file.info(fl) %>%
+      tibble::rownames_to_column(var = "path") %>%
+      dplyr::select(path, size, isdir, mtime, ctime, atime)
+
+    # remove small files
+    if(min_size > 0){
+      finfo <- finfo %>%
+        dplyr::filter(size >= min_size)
+    }
+  } else {
+    finfo <- NULL
+  }
 
   # return
-  tb
+  list(
+    dl = dl,
+    finfo = finfo
+  )
 }
 
-#' List, retrieve metadata, and store information about all user directories and files
+#' Queue file manager.
 #'
-#' @param user_ character. Set origin user's name.
-#' @param ignore_library logical. Ignore user /Library.
-#' @param ignore_apps logical. Ignore user /Applications.
-#' @param ignore_hidden logical. Ignore hidden files (which begin with period).
-#' @param min_size numeric. Ignore files under a certain size (bytes).
-#' @param include_icloud logical. Include iCloud files. This will probably significantly increase scanning time.
-#' @param savepath character. The file path to the output directory. By default, it saves to ~/Downloads.
-#' @param pattern_ character. Useful for narrowing down certain filetypes, eg. ".pdf$". See pattern in arguments for \link[base]{list.files}.
-#' @param date_ character. The date that should be appended to any files. By default it does `format(Sys.time(), "%Y_%m_%d")`.
+#' @description
+#' Manages a txt file that contains a list of file paths. It can do three things in any combination: 1) Read the first line and return it (which it does by default), 2) Append paths to the bottom of the txt, and 3) remove the first line of the text file. This function does not read the whole file. It will create an empty txt document if none exists.
 #'
-#' @returns tibble
-#' @export
-k_user_ls <- function(
-    user_ = NULL,
-    ignore_library = TRUE,
-    ignore_apps = TRUE,
-    ignore_hidden = TRUE,
-    min_size = 1000,
-    include_icloud = TRUE,
-    savepath = "~/Downloads",
-    pattern_ = NULL,
-    date_ = NULL
+#' @param path_ character. A single file path to the txt file. Make sure this is consistent each time the file loads.
+#' @param add_ character. One or more paths in a character vector. Set to NULL when nothing to add.
+#' @param rm_  logical. Determines whether to delete the top line or not.
+#' @param read_ logical. Read the first line of the file?
+#'
+#' @returns character.
+intr_queue <- function(
+    path_,
+    add_ = NULL,
+    rm_ = FALSE,
+    read_ = FALSE
 ){
-  stopifnot(inherits(user_, "character")
-            | inherits(user_, "NULL"))
-  stopifnot(inherits(ignore_library, "logical"))
-  stopifnot(inherits(ignore_apps, "logical"))
-  stopifnot(inherits(ignore_hidden, "logical"))
-  stopifnot(inherits(min_size, "numeric"))
-  stopifnot(inherits(include_icloud, "logical"))
-  stopifnot(inherits(savepath, "character"))
-  stopifnot(inherits(pattern_, "character")
-            | inherits(pattern_, "NULL"))
-  stopifnot(inherits(date_, "character")
-            | inherits(date_, "NULL"))
+  stopifnot(inherits(path_, "character"))
+  stopifnot(inherits(add_, "character") | inherits(add_, "NULL"))
+  stopifnot(inherits(rm_, "logical"))
+  stopifnot(inherits(read_, "logical"))
 
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  # Set User Path ----
-  if(inherits(user_, "NULL")){
-    user_ <- "~"
-    icloud_path <- "~/Library/Mobile Documents/com~apple~CloudDocs/"
+  if (!file.exists(path_)) {
+    file.create(path_)
+  }
 
-  } else {
-    user_ <- paste0("/Users/", user_)
-    # modify output save path to match custom user.
-    savepath <- file.path(user_, sub(pattern = "~",
-                                     replacement = "",
-                                     x = savepath))
-
-    icloud_path <- paste0(
-      user_,
-      "/Library/Mobile Documents/com~apple~CloudDocs/"
+  # Append new contents to queue file on disk
+  # add new lines to bottom
+  if(!inherits(add_, "NULL")){
+    write(
+      x =  add_,
+      file = path_,
+      append = TRUE,
+      sep = "\n"
     )
-
   }
 
-  # Create File Names ----
-  # Set filename date.
-  if(inherits(date_, "NULL")){
-    date_ <- format(Sys.time(), "%Y_%m_%d")
+  # Remove first item from queue txt file.
+  if(rm_ == TRUE){
+    # Shell scripting (unix only)
+    # Use 'tail' to skip the first line and overwrite the file
+    # Safely handle paths with spaces using shQuote
+    tmp_path <- paste0(path_, ".tmp")
+    cmd <- paste("tail -n +2",
+                 shQuote(path_), ">",
+                 shQuote(tmp_path), "&& mv",
+                 shQuote(tmp_path),
+                 shQuote(path_))
+    system(cmd)
   }
 
-  # Set filename for saving to disk.
-  filelistpath <- file.path(
-    savepath,
-    paste0("kondo_filelist_",
-           date_,
-           ".csv")
-  )
-
-  # create temporary directory list of all completed searches.
-  dirlistpath <- file.path(
-    savepath,
-    paste0("kondo_dirlist_",
-           date_,
-           ".csv")
-  )
-
-  queuepath <- file.path(
-    savepath,
-    paste0("kondo_queue_", date_, ".txt")
-  )
-
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  # Create Pool, Queue and Tally ----
-  # (POOL keeps track of number of directories in QUEUE.
-  # QUEUE is vector of directories to search.
-  # TLLY keeps track of how many *files* have been accounted.)
-  # Scenario 1: Starting from scratch.
-  if(!file.exists(queuepath)){
-    # Create pool of directory paths to draw from. Init with user, eg. ~.
-    queue <- user_
-    pool <- 1
-
-    # set a tally for the ID number for file info.
-    tlly <- 0
+  # read and return
+  if(read_){
+    readLines(con = path_, n = 1)
   } else {
-    # Scenario 2: Load previous work.
-
-    # retrieve previous queue
-    queue <- readLines(con = queuepath)
-    if(queue[1] == ""){
-      stop("Queue is empty.")
-    }
-    pool <- length(queue)
-
-    # load tally info
-    if(file.exists(filelistpath)){
-      prev <- read.csv(file = filelistpath)
-
-      # grab previous tally as baseline
-      tlly <- prev$tlly[nrow(prev)]
-    } else {
-      tlly <- 0
-    }
-  }  # END Pool and Tally
-
-  # Simply to keep track of how many loops we've done.
-  loop_counter <- 0
-
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  # LOOP1 ----
-  while(length(pool) > 0){
-
-    # update loop counter
-    loop_counter <- loop_counter + 1
-
-    if(loop_counter == 1){
-      message("Begin LOOP1")
-    }
-
-    if(loop_counter %% 25 == 0){
-      message(paste0("Loop #", loop_counter))
-    }
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Scan Dirs/Files in Loop1 ----
-    # get path
-    dir_ <- queue[1]
-
-    # get directories (non-recursively)
-    dl <- list.dirs(path = dir_,
-                    full.names = TRUE,
-                    recursive = FALSE)
-
-    # get file list
-    fl <- list.files(path = dir_,
-                     pattern = pattern_,
-                     full.names = TRUE,
-                     all.files = !ignore_hidden)
-
-    # remove directories from file list.
-    fl <- fl[!(fl %in% dl)]
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Remove Unwanted Dirs and Files ----
-    # Library
-    if(ignore_library){
-      dl <- dl[!grepl(
-        pattern = paste0(user_, "/Library"),
-        x = dl
-      )]
-    }
-    # Applications
-    if(ignore_apps){
-      dl <- dl[!grepl(
-        pattern = paste0(user_, "/Applications"),
-        x = dl
-      )]
-    }
-    # Hidden
-    # The pattern is a REGEX that detects a period at the beginning of
-    # a directory name.
-    # (Note, hidden files are already taken care of in `list.files` above.)
-    if(ignore_hidden){
-      dl <- dl[
-        !grepl(
-          pattern = "(?<=\\/)\\.",
-          x = dl,
-          perl = TRUE
-        )
-      ]
-    }
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Append Queue ----
-    queue <- append(queue, dl)
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Save FileList ----
-    # ie. file.info
-    if(length(fl) > 0){
-      finfo <- file.info(fl) %>%
-        tibble::rownames_to_column(var = "path")
-
-      # remove small files
-      if(min_size > 0){
-        finfo <- finfo %>%
-          dplyr::filter(size >= min_size)
-      }
-
-      # add ID and select cols
-      finfo <- finfo %>%
-        dplyr::mutate(id = tlly + dplyr::row_number()) %>%
-        dplyr::select(id, path, size, isdir, mtime, ctime, atime)
-
-      # update tally
-      tlly <- finfo$id[nrow(finfo)]
-
-      # write to storage
-      if(file.exists(filelistpath)){
-        write.csv(
-          x = finfo,
-          file = filelistpath,
-          append = TRUE,
-          row.names = FALSE
-        )
-      } else {
-        write.csv(
-          x = finfo,
-          file = filelistpath,
-          row.names = FALSE
-        )
-      }
-    }
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Decrement Pool ----
-    pool <- pool - 1
-    if(length(pool) >= 1){
-
-      queue <- queue[2:length(queue)]
-      stopifnot(length(queue) == length(pool))
-
-      writeLines(text = queue, con = queuepath)
-
-    } else if(include_icloud){
-      message("Begin iCloud Inventory.")
-      include_icloud <- FALSE
-      queue <- icloud_path
-      writeLines(text = queue, con = queuepath)
-      pool <- 1
-
-    } else {
-      message("Queue is empty.")
-      writeLines("", con = queuepath)
-    }
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Save DirList ----
-
-    dirlist <- data.frame(
-      dir = dir_,
-      tlly = tlly,
-      nsubdirs = length(dl)
-    )
-
-    # write to storage
-    if(file.exists(dirlistpath)){
-      write.csv(
-        x = dirlist,
-        file = dirlistpath,
-        append = TRUE,
-        row.names = FALSE
-      )
-    } else {
-      write.csv(
-        x = dirlist,
-        file = dirlistpath,
-        row.names = FALSE
-      )
-    }
-
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    NULL
   }
-  # END LOOP1 ----
+}
 
-  # Return
+#' Write or append to csv
+#'
+#' @param path_ character. Path to desired csv.
+#' @param df data.frame. Data to write to disk.
+#'
+#' @returns NULL
+intr_csv_writer <- function(path_, df){
+  stopifnot(inherits(path_, "character"))
+  stopifnot(inherits(df, "data.frame"))
+
+  # Write file info to csv.
+  if(!file.exists(path_)){
+    # New file
+    write.csv(
+      x = df,
+      file = path_,
+      row.names = FALSE
+    )
+  } else {
+    # Append to old file.
+    write.table(
+      x = df,
+      file = path_,
+      sep = ",",
+      append = TRUE,
+      row.names = FALSE,
+      col.names = !file.exists(path_)
+    )
+  }
+
+  # return
   NULL
 }
 
+#' Create file system information from directory.
+#'
+#' @description
+#' Write file system information for all files under one or more directories. Because this task is potentially memory intensive, progress is written to disk as a csv file. As such, this function returns only the path to the output csv.
+#'
+#'
+#' @param dir1 character. Starting directory. NULL defaults to ~. Must be length 1.
+#' @param dirs2 character. Secondary directories that should be included. Set to NULL if unwanted. A common secondary directory to add is iCloud when ~/Library is ignored. Use this string "~/Library/Mobile Documents/com~apple~CloudDocs/" to include iCloud.
+#' @param ignore_dirs character. Directories to ignore. By default, ignores user Library and Application
+#' @param include_hid logical. Include hidden files and directories (which on macOS begin with period).
+#' @param min_size numeric. Minimum file size to include (in bytes).
+#' @param suffix_ character. File name suffix of output files. By default the suffix is the date. This is a useful argument if the algorithm stops part way and you need to restart it using saved data.
+#' @param savepath character. Path to store output.
+#' @param pattern_ character. Pattern for list.files which is used to locate specific file types.
+#'
+#' @returns character
+#' @export
+k_ls <- function(
+  dir1 = "~",
+  dirs2 = NULL,
+  ignore_dirs = c("~/Library", "~/Applications"),
+  include_hid = FALSE,
+  min_size = 1000,
+  suffix_ = NULL,
+  savepath = "~/Downloads",
+  pattern_ = NULL
+){
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Checks ----
+  stopifnot(inherits(dir1, "character"))
+  stopifnot(inherits(dirs2, "NULL") | inherits(dirs2, "character"))
+  stopifnot(inherits(ignore_dirs, "NULL") | inherits(ignore_dirs, "character"))
+  stopifnot(inherits(include_hid, "logical"))
+  stopifnot(inherits(min_size, "numeric"))
+  stopifnot(inherits(suffix_, "NULL") | inherits(suffix_, "character"))
+  stopifnot(inherits(savepath, "character"))
+  stopifnot(inherits(pattern_, "NULL") | inherits(pattern_, "character"))
 
+  # obtain system information, such as user and OS.
+  sys1 <- Sys.info()
+  sys1 <- data.frame(key = names(sys1),
+                     value = sys1,
+                     row.names = NULL)
 
+  # check to ensure this is macOS
+  stopifnot(sys1$value[sys1$key=="sysname"] == "Darwin")
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Paths ----
+  # In this section we normalize paths and create output paths.
+
+  # organize paths as a list.
+  p <- list(
+    # primary root directory to begin in.
+    dir1 = dir1,
+    # path to output directory.
+    sav = savepath,
+    # unique identifier for output files...
+    # eg. kondo_queue_SUFFIX.txt
+    suffix = ifelse(inherits(suffix_, "NULL"),
+                    format(Sys.time(), "%Y_%m_%d"),
+                    suffix_)
+  )
+
+  # If we supply other directories to inventory...
+  if(!inherits(dirs2, "NULL")){
+    p <- append(p, list(dirs2 = dirs2))
+  }
+
+  # If we supply directories to skip...
+  if(!inherits(ignore_dirs, "NULL")){
+    p <- append(p, list(igno = ignore_dirs))
+  }
+
+  # Normalize ~ paths to absolute paths.
+  # note, mustWork is FALSE because some users don't have ~/Applications
+  p <- lapply(p, function(.x) normalizePath(path = .x, mustWork = F))
+
+  # Add output file paths.
+  p <- append(
+    p,
+    list(
+      queue = file.path(p$sav,
+                        paste0("kondo_queue_", p$suffix, ".txt")
+      ),
+      finfo = file.path(p$sav,
+                        paste0("kondo_fileinfo_", p$suffix, ".csv"))
+    )
+  )
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Does the queue already exist?
+  # The use case of this is if this algorithm crashes,
+  # you can pick up where you left off.
+  if(!file.exists(p$queue)){
+    # Fresh start
+    queue <- c(p$dir1, p$dirs2)
+    invisible(kondo:::intr_queue(
+      path_ = p$queue,
+      add_ = c(p$dir1, p$dirs2),
+      rm_ = FALSE,
+      read_ = FALSE
+    ))
+  } else {
+    # Restart
+    queue <- readLines(
+      con = p$queue
+    )
+  }
+
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # Loop ----
+  message("kondo::kls loop begins...")
+  while(length(queue) > 0){
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Derive inventory.
+    inv <- k_inventory(
+      dir_ = queue[1],
+      ignore_ = p$igno,
+      pattern_ = pattern_,
+      min_size = min_size,
+      include_hid = include_hid
+    )
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Write inventory contents to disk.
+    if(!inherits(inv, "NULL")){
+
+      # Write new subdirectories to queue file.
+      if(!identical(inv$dl, character(0))){
+        # Add new subdirectories to queue file on disk.
+        invisible(kondo:::intr_queue(
+          path_ = p$queue,
+          add_ = inv$dl,
+          rm_ = FALSE,
+          read_ = FALSE
+        ))
+
+        # As a means of indicating a sense of progress,
+        # whenever more than 10 new directories are inventoried,
+        # a message will appear with some information.
+        if(length(inv$dl) > 10){
+          message(paste0(
+            "kls::kondo progress update, directory ",
+            queue[1],
+            " has ",
+            length(inv$dl),
+            " sub-folders..."
+          ))
+        }
+
+        # Add subdirectories into the queue in RAM/environment.
+        queue <- c(queue, inv$dl)
+      }
+
+      # file info
+      if(!inherits(inv$finfo, "NULL")){
+        invisible(kondo:::intr_csv_writer(path_ = p$finfo,
+                                  df = inv$finfo))
+      }
+
+    }  # End writing inventory to disk
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Remove completed dir from the top of queue file.
+    invisible(kondo:::intr_queue(
+      path_ = p$queue,
+      add_ = NULL,
+      rm_ = TRUE,
+      read_ = FALSE
+    ))
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Remove completed dir from the top of the queue in RAM/environment.
+    if(length(queue) > 1){
+      queue <- queue[2:length(queue)]
+    } else {
+      queue <- c()
+    }
+
+  }  # END loop
+
+  message("kondo::kls completed.")
+  # return
+  p$finfo
+}
 
 #' Identify duplicates files in tibble contain columns path and size
 #'

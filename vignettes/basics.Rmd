@@ -23,13 +23,13 @@ library(kondo)
 We'll test this code with some dummy data. There are essentially two datasets built into this package and both are derived from `data(iris)`. From these two data subsets, there are essentially two files with some sort of duplication. There is a file with the same file name (and data), and another file that is simply a data duplicate, but with its own unique name. Finally, there is one file that has no duplicate.
 
 ```{r}
-# Get path to extdata directory
-extdata_path <- system.file("extdata", package = "kondo")
-test_path <- file.path(extdata_path, "test_iris")
-
-# Run list files function
-df <- k_ls(test_path)
-df
+# # Get path to extdata directory
+# extdata_path <- system.file("extdata", package = "kondo")
+# test_path <- file.path(extdata_path, "test_iris")
+# 
+# # Run list files function
+# df <- k_ls(test_path)
+# df
 ```
 
 Now we find duplicates. The following function identifies duplicates in two ways:
@@ -41,30 +41,30 @@ Second, it does a quick [md5](https://en.wikipedia.org/wiki/MD5) hash function u
 So, as you examine the output data.frame, look at the `md5` column and search for duplicates.
 
 ```{r}
-df <- k_dupes(df, rm.unique = FALSE)
-
-df
+# df <- k_dupes(df, rm.unique = FALSE)
+# 
+# df
 ```
 
 To identify duplicates programmatically, you can use this code.
 
 ```{r}
-duplicated(df$md5)
+# duplicated(df$md5)
 ```
 Notice that the first instance of the md5 value is not flagged as a duplicate, even though the following line is in fact a duplicate.
 
 By and large, the way `k_dupes` works is to only check for duplicates where common file sizes are present. So, you can clear out any file that have no duplicates by filtering `!is.na(df$md5)`.
 
 ```{r}
-df[!is.na(df$md5),]
+# df[!is.na(df$md5),]
 ```
 
 Alternatively, we can filter out duplicates from the start. Notice how `k_dupes` no longer has an argument `rm.unique = FALSE`. The default is to remove unique values.
 
 ```{r}
-df <- k_ls(test_path)
-df <- k_dupes(df)
-df
+# df <- k_ls(test_path)
+# df <- k_dupes(df)
+# df
 ```
 
 # Cleaning Personal Files
@@ -72,17 +72,17 @@ df
 By and large, on macOS, we want to look for personal files in the following directories (recursively).
 
 ```{r}
-c(
-  # iCloud
-  "~/Library/Mobile\ Documents/com~apple~CloudDocs/",
-  # user files (minus Library and Applications)
-  "~/Desktop",
-  "~/Documents",
-  "~/Downloads",
-  "~/Pictures",
-  "~/Music",
-  "~/Movies" 
-)
+# c(
+#   # iCloud
+#   "~/Library/Mobile\ Documents/com~apple~CloudDocs/",
+#   # user files (minus Library and Applications)
+#   "~/Desktop",
+#   "~/Documents",
+#   "~/Downloads",
+#   "~/Pictures",
+#   "~/Music",
+#   "~/Movies" 
+# )
 ```
 
 

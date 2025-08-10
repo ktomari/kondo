@@ -2,21 +2,39 @@
 % Please edit documentation in R/components.R
 \name{k_ls}
 \alias{k_ls}
-\title{Create a tibble of non-recursive file list with information}
+\title{Create file system information from directory.}
 \usage{
-k_ls(dir_, pattern_ = NULL)
+k_ls(
+  dir1 = "~",
+  dirs2 = NULL,
+  ignore_dirs = c("~/Library", "~/Applications"),
+  include_hid = FALSE,
+  min_size = 1000,
+  suffix_ = NULL,
+  savepath = "~/Downloads",
+  pattern_ = NULL
+)
 }
 \arguments{
-\item{dir_}{character. One or more paths to directories to inventory.}
+\item{dir1}{character. Starting directory. NULL defaults to ~. Must be length 1.}
 
-\item{pattern_}{NULL or string. Pattern to feed into list.files.}
+\item{dirs2}{character. Secondary directories that should be included. Set to NULL if unwanted. A common secondary directory to add is iCloud when ~/Library is ignored. Use this string "~/Library/Mobile Documents/com~apple~CloudDocs/" to include iCloud.}
+
+\item{ignore_dirs}{character. Directories to ignore. By default, ignores user Library and Application}
+
+\item{include_hid}{logical. Include hidden files and directories (which on macOS begin with period).}
+
+\item{min_size}{numeric. Minimum file size to include (in bytes).}
+
+\item{suffix_}{character. File name suffix of output files. By default the suffix is the date. This is a useful argument if the algorithm stops part way and you need to restart it using saved data.}
+
+\item{savepath}{character. Path to store output.}
+
+\item{pattern_}{character. Pattern for list.files which is used to locate specific file types.}
 }
 \value{
-tibble
+character
 }
 \description{
-Create a tibble of non-recursive file list with information
-}
-\examples{
-k_ls(dir_ = "~/Downloads")
+Write file system information for all files under one or more directories. Because this task is potentially memory intensive, progress is written to disk as a csv file. As such, this function returns only the path to the output csv.
 }
