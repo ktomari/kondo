@@ -166,13 +166,13 @@ intr_csv_writer <- function(path_, df){
   stopifnot(inherits(path_, "character"))
   stopifnot(inherits(df, "data.frame"))
 
-  # Write file info to csv.
-  if(!file.exists(path_)){
+  if(!file.exists(path_)) {
     # New file
     write.csv(
       x = df,
       file = path_,
-      row.names = FALSE
+      row.names = FALSE,
+      qmethod = "escape"  # This will escape quotes with backslashes
     )
   } else {
     # Append to old file.
@@ -182,7 +182,8 @@ intr_csv_writer <- function(path_, df){
       sep = ",",
       append = TRUE,
       row.names = FALSE,
-      col.names = !file.exists(path_)
+      col.names = !file.exists(path_),
+      qmethod = "escape"  # This will escape quotes with backslashes
     )
   }
 
