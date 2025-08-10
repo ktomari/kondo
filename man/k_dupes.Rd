@@ -4,16 +4,16 @@
 \alias{k_dupes}
 \title{Identify duplicates files in tibble contain columns path and size}
 \usage{
-k_dupes(tb, rm.unique = TRUE, msg_rate = 50, write_ = FALSE)
+k_dupes(tb, rm.unique = TRUE, msg_rate = 50, savpath = "~/Downloads")
 }
 \arguments{
-\item{tb}{data.frame/tibble. The data.frame returned by \code{k_ls}.}
+\item{tb}{data.frame or character. Either a data.frame from the file created by \code{k_ls} or a path to that csv.}
 
 \item{rm.unique}{logical. Whether or not to remove unique values. By default, it is \code{TRUE}.}
 
 \item{msg_rate}{numeric. How often do you want a system message to appear as you run the function? By default, on every 50th file, a message will appear.}
 
-\item{write_}{logical. Write csv output to disk. By default it downloads to ~/Downloads.}
+\item{savpath}{character. Write csv output to disk. By default it downloads to ~/Downloads.}
 }
 \value{
 tibble

@@ -13,6 +13,7 @@ Imports:
     dplyr,
     magrittr,
     purrr,
+    readr,
     stringr,
     tibble
 Suggests: 

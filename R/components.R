@@ -166,25 +166,12 @@ intr_csv_writer <- function(path_, df){
   stopifnot(inherits(path_, "character"))
   stopifnot(inherits(df, "data.frame"))
 
+  # For new file
   if(!file.exists(path_)) {
-    # New file
-    write.csv(
-      x = df,
-      file = path_,
-      row.names = FALSE,
-      qmethod = "escape"  # This will escape quotes with backslashes
-    )
+    readr::write_csv(df, path_)
   } else {
-    # Append to old file.
-    write.table(
-      x = df,
-      file = path_,
-      sep = ",",
-      append = TRUE,
-      row.names = FALSE,
-      col.names = !file.exists(path_),
-      qmethod = "escape"  # This will escape quotes with backslashes
-    )
+    # For appending
+    readr::write_csv(df, path_, append = TRUE)
   }
 
   # return
@@ -335,8 +322,12 @@ k_ls <- function(
         # a message will appear with some information.
         if(length(inv$dl) > 10){
           message(paste0(
-            "kls::kondo progress update, directory ",
-            queue[1],
+            "kondo::kls progress update, directory ",
+            sub(
+              pattern = p$dir1,
+              replacement = "",
+              x = queue[1]
+              ),
             " has ",
             length(inv$dl),
             " sub-folders..."
@@ -384,22 +375,33 @@ k_ls <- function(
 #' @description
 #' If hash is present in the `md5`column, then it is duplicate!
 #'
-#' @param tb data.frame/tibble. The data.frame returned by `k_ls`.
+#' @param tb data.frame or character. Either a data.frame from the file created by `k_ls` or a path to that csv.
 #' @param rm.unique logical. Whether or not to remove unique values. By default, it is `TRUE`.
 #' @param msg_rate numeric. How often do you want a system message to appear as you run the function? By default, on every 50th file, a message will appear.
-#' @param write_ logical. Write csv output to disk. By default it downloads to ~/Downloads.
+#' @param savpath character. Write csv output to disk. By default it downloads to ~/Downloads.
 #'
 #' @returns tibble
 #' @export
 k_dupes <- function(tb,
                     rm.unique = TRUE,
                     msg_rate = 50,
-                    write_ = FALSE){
-  stopifnot(inherits(tb, 'data.frame'))
+                    savpath = "~/Downloads"){
+  stopifnot(inherits(tb, 'data.frame') | inherits(tb, "character"))
   stopifnot(inherits(msg_rate, 'numeric'))
-  stopifnot(inherits(write_, "logical"))
+  stopifnot(inherits(savpath, "character"))
+
+  # load data if needed
+  if(inherits(tb, "character")){
+    # If tb is just a path.
+    tbp <- normalizePath(tb)
+    tb <- read.csv(file = tbp)
+  }
+
   stopifnot("path" %in% names(tb))
   stopifnot("size" %in% names(tb))
+
+  # normalize savepath
+  savpath <- normalizePath(savpath, mustWork = F)
 
   # add column that recognizes duplicate filenames
   tb <- tb %>%
@@ -426,7 +428,7 @@ k_dupes <- function(tb,
         if(!(msg_rate == 0 | is.na(msg_rate))){
           if(idx %% msg_rate == 0){
             message(paste0(
-              "k_dupes progress: ",
+              "kondo::k_dupes progress: ",
               idx,
               " of ",
               nrow(dups),
@@ -464,13 +466,22 @@ k_dupes <- function(tb,
     tb <- tb[tb$md5 %in% filtr_,]
   }
 
-  if(write_){
-    nm <- paste0("~/Downloads/kondo_kdupes_",
-                 format(Sys.time(), "%Y_%m_%d_%H:%M"),
-                 ".csv")
-    write.csv(
+  # Arrange tb
+  tb <- tb %>%
+    dplyr::arrange(dplyr::desc(size), md5)
+
+  if(!inherits(savpath, "NULL")){
+
+    out_path <- file.path(
+      savpath,
+      paste0("kondo_kdupes_",
+             format(Sys.time(), "%Y_%m_%d"),
+             ".csv")
+    )
+
+    readr::write_csv(
       x = tb,
-      file = nm
+      file = out_path
     )
   }
 
